@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة صائد حروف الجر</title>
+    
+    <!-- Google Fonts: Cairo for kid-friendly Arabic typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            overflow: hidden; /* Prevent scrolling */
+            touch-action: none; /* Better touch handling for games */
+        }
+
+        /* Landscape Background */
+        .sky-bg {
+            background: linear-gradient(180deg, #60A5FA 0%, #93C5FD 100%);
+        }
+        
+        .grass-bg {
+            background: #22C55E;
+            border-top-left-radius: 50% 20px;
+            border-top-right-radius: 50% 20px;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        /* Balloon Styles & Animations */
+        .balloon {
+            position: absolute;
+            bottom: -150px;
+            width: 80px;
+            height: 100px;
+            background-color: #EF4444; /* Default */
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            box-shadow: inset -10px -10px 20px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        /* Balloon string */
+        .balloon::after {
+            content: '';
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            width: 2px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.6);
+            transform: translateX(-50%);
+        }
+
+        /* Balloon knot */
+        .balloon::before {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 8px solid currentColor;
+            color: inherit;
+        }
+
+        .balloon-text {
+            color: white;
+            font-weight: 900;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        /* Float Animation */
+        @keyframes floatUp {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            25% { transform: translateY(-25vh) rotate(-5deg); }
+            50% { transform: translateY(-50vh) rotate(5deg); }
+            75% { transform: translateY(-75vh) rotate(-5deg); }
+            100% { transform: translateY(-110vh) rotate(0deg); opacity: 1; }
+        }
+
+        .floating {
+            animation: floatUp linear infinite;
+        }
+
+        /* Pop Animation */
+        @keyframes pop {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        
+        .popped {
+            animation: pop 0.3s ease-out forwards;
+            pointer-events: none; /* Disable clicks while popping */
+        }
+
+        /* Celebration Confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            opacity: 0;
+            z-index: 50;
+        }
+
+        @keyframes confettiDrop {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        .pulse {
+            animation: pulse-scale 0.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse-scale {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body class="sky-bg w-screen h-screen flex flex-col relative text-gray-800">
+
+    
+    <!-- Screen 1: Start Menu -->
+    <div id="start-screen" class="absolute inset-0 z-40 flex flex-col items-center justify-center bg-white/30 backdrop-blur-sm">
+        <div class="bg-white p-8 md:p-12 rounded-3xl shadow-2xl text-center border-4 border-yellow-400 max-w-md w-[90%] transform transition-transform pulse">
+            <h1 class="text-4xl md:text-5xl font-black text-blue-600 mb-6 drop-shadow-md">صائد حروف الجر</h1>
+            <p class="text-xl md:text-2xl text-gray-700 mb-8 font-bold">ساعدنا في إكمال الجمل باختيار البالون الصحيح!</p>
+            <button onclick="startGame()" class="bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-black text-2xl py-4 px-10 rounded-full shadow-[0_8px_0_#B45309] active:shadow-[0_0px_0_#B45309] active:translate-y-2 transition-all">
+                ابدأ اللعب الآن 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Game Screen -->
+    <div id="game-screen" class="absolute inset-0 flex flex-col hidden z-10">
+        <!-- Header: Score and Progress -->
+        <header class="p-4 flex justify-between items-center bg-white/50 backdrop-blur-md rounded-b-3xl shadow-md mx-4 mt-0">
+            <div class="flex items-center gap-2">
+                <span class="text-3xl">⭐</span>
+                <span class="text-2xl font-black text-blue-800">النقاط: <span id="score-display">0</span></span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-2xl font-black text-purple-800">الجملة: <span id="question-counter">1</span>/<span id="total-questions">10</span></span>
+            </div>
+        </header>
+
+        <!-- Question Display -->
+        <main class="flex-grow flex flex-col items-center justify-start pt-10 px-4">
+            <div class="bg-white/90 border-4 border-blue-400 p-6 md:p-8 rounded-2xl shadow-xl max-w-3xl w-full text-center">
+                <h2 id="sentence-text" class="text-2xl md:text-4xl font-bold leading-relaxed text-gray-800">
+                    ذهب الطالب <span class="inline-block min-w-[80px] border-b-4 border-dashed border-gray-400 text-blue-600 mx-2 pb-1">___</span> المدرسة.
+                </h2>
+            </div>
+            
+            <!-- Success/Feedback Message -->
+            <div id="feedback-msg" class="text-3xl md:text-4xl font-black mt-6 opacity-0 transition-opacity duration-300">
+                أحسنت! 🎉
+            </div>
+        </main>
+
+        <!-- Balloon Container Layer -->
+        <div id="balloon-container" class="absolute inset-0 overflow-hidden pointer-events-none z-20">
+            <!-- Balloons injected here via JS -->
+        </div>
+
+        <!-- Grass Footer -->
+        <footer class="grass-bg h-24 md:h-32 w-full absolute bottom-0 z-30 pointer-events-none"></footer>
+    </div>
+
+    <!-- Screen 3: End Screen -->
+    <div id="end-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-blue-900/80 backdrop-blur-md hidden">
+        <div class="bg-white p-8 md:p-12 rounded-3xl shadow-2xl text-center border-4 border-green-400 max-w-md w-[90%]">
+            <h1 class="text-5xl md:text-6xl mb-4">🏆</h1>
+            <h2 class="text-4xl font-black text-green-600 mb-4">نهاية اللعبة!</h2>
+            <p class="text-2xl font-bold text-gray-700 mb-6">لقد جمعت <span id="final-score" class="text-blue-600 text-4xl">0</span> نقطة.</p>
+            
+            <button onclick="resetGame()" class="bg-green-500 hover:bg-green-600 text-white font-black text-2xl py-4 px-10 rounded-full shadow-[0_8px_0_#166534] active:shadow-[0_0px_0_#166534] active:translate-y-2 transition-all mt-4">
+                العب مرة أخرى 🔄
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Constants & Data
+        const ALL_PREPOSITIONS = ['من', 'إلى', 'عن', 'على', 'في', 'بـ', 'كـ', 'لـ'];
+        
+        const SENTENCES_DB = [
+            { text: "ذهب أحمد {gap} المدرسة مبكراً.", correct: "إلى" },
+            { text: "دافع الجندي الشجاع {gap} وطنه.", correct: "عن" },
+            { text: "وضعت المعلمة الكتاب {gap} الطاولة.", correct: "على" },
+            { text: "أخذت القلم {gap} صديقي.", correct: "من" },
+            { text: "يلعب الأطفال بسعادة {gap} الحديقة.", correct: "في" },
+            { text: "كتبت واجبي المدرسي {gap}القلم الأزرق.", correct: "بـ" },
+            { text: "هذا الجندي شجاع {gap}الأسد.", correct: "كـ" },
+            { text: "قدمت هدية جميلة {gap}أمي.", correct: "لـ" },
+            { text: "يجب أن نبتعد {gap} أصدقاء السوء.", correct: "عن" },
+            { text: "عاد المسافر {gap} أرض الوطن.", correct: "إلى" }
+        ];
+
+        // Colors for balloons to make it vibrant
+        const BALLOON_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
+
+        // Game State Variables
+        let currentQuestions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let isWaitingForNext = false;
+        let balloonElements = [];
+
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const sentenceText = document.getElementById('sentence-text');
+        const scoreDisplay = document.getElementById('score-display');
+        const questionCounter = document.getElementById('question-counter');
+        const totalQuestionsSpan = document.getElementById('total-questions');
+        const balloonContainer = document.getElementById('balloon-container');
+        const feedbackMsg = document.getElementById('feedback-msg');
+        const finalScore = document.getElementById('final-score');
+
+        
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            // Prepare questions (Shuffle and pick 10)
+            currentQuestions = shuffleArray([...SENTENCES_DB]).slice(0, 10);
+            totalQuestionsSpan.innerText = currentQuestions.length;
+            
+            currentIndex = 0;
+            score = 0;
+            updateScore();
+            
+            loadQuestion();
+        }
+
+        function resetGame() {
+            endScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+
+        function updateScore() {
+            scoreDisplay.innerText = score;
+        }
+
+        function loadQuestion() {
+            if (currentIndex >= currentQuestions.length) {
+                endGame();
+                return;
+            }
+
+            isWaitingForNext = false;
+            questionCounter.innerText = currentIndex + 1;
+            
+            const currentQ = currentQuestions[currentIndex];
+            
+            // Render text with gap
+            const parts = currentQ.text.split('{gap}');
+            sentenceText.innerHTML = `${parts[0]} <span id="gap-span" class="inline-block min-w-[80px] text-center border-b-4 border-dashed border-gray-400 text-blue-600 mx-2 pb-1 transition-all duration-300">___</span> ${parts[1]}`;
+            
+            feedbackMsg.style.opacity = "0";
+            feedbackMsg.className = "text-3xl md:text-4xl font-black mt-6 transition-opacity duration-300 opacity-0";
+            
+            spawnBalloons(currentQ.correct);
+        }
+
+        
+        function spawnBalloons(correctAnswer) {
+            // Clear existing balloons
+            balloonContainer.innerHTML = '';
+            balloonElements = [];
+            
+            // Determine options: 1 correct, 3 wrong
+            let options = [correctAnswer];
+            let availableWrongs = ALL_PREPOSITIONS.filter(p => p !== correctAnswer);
+            availableWrongs = shuffleArray(availableWrongs);
+            
+            options.push(availableWrongs[0], availableWrongs[1], availableWrongs[2]);
+            options = shuffleArray(options);
+
+            // Screen width partitioning to avoid overlaps
+            const numBalloons = options.length;
+            const segmentWidth = 100 / numBalloons; // %
+
+            options.forEach((prep, index) => {
+                const balloon = document.createElement('div');
+                
+                // Styling the balloon wrapper
+                balloon.className = 'balloon floating pointer-events-auto';
+                
+                // Randomize color
+                const color = BALLOON_COLORS[index % BALLOON_COLORS.length];
+                balloon.style.backgroundColor = color;
+                // Inherit color for the knot
+                balloon.style.color = color;
+                
+                // Positioning (spread across screen width)
+                // Random position within its segment segmentWidth * index to segmentWidth * (index+1)
+                const leftPos = (segmentWidth * index) + (Math.random() * (segmentWidth * 0.4)) + (segmentWidth * 0.1); 
+                balloon.style.left = `${leftPos}%`;
+                
+                // Staggered start times and slightly varying speeds
+                const duration = 6 + Math.random() * 4; // 6s to 10s
+                const delay = Math.random() * 1.5; // 0 to 1.5s delay
+                
+                balloon.style.animationDuration = `${duration}s`;
+                balloon.style.animationDelay = `${delay}s`;
+
+                // Add text
+                const textSpan = document.createElement('span');
+                textSpan.className = 'balloon-text';
+                textSpan.innerText = prep;
+                balloon.appendChild(textSpan);
+
+                // Interaction
+                balloon.onclick = () => handleBalloonClick(balloon, prep === correctAnswer, prep);
+
+                balloonContainer.appendChild(balloon);
+                balloonElements.push(balloon);
+            });
+        }
+
+
+        function handleBalloonClick(balloon, isCorrect, prepText) {
+            if (isWaitingForNext) return;
+
+            if (isCorrect) {
+                isWaitingForNext = true;
+                
+                // Fill the gap
+                const gapSpan = document.getElementById('gap-span');
+                gapSpan.innerText = prepText;
+                gapSpan.classList.remove('border-dashed', 'border-gray-400');
+                gapSpan.classList.add('border-solid', 'border-green-500', 'text-green-600', 'scale-110');
+
+                // Visual Feedback
+                feedbackMsg.innerText = "أحسنت! إجابة صحيحة 🎉";
+                feedbackMsg.classList.add('text-green-600');
+                feedbackMsg.style.opacity = "1";
+                
+                score += 10;
+                updateScore();
+                
+                fireConfetti();
+                
+                // Stop all balloons from being clickable and pause their animation
+                balloonElements.forEach(b => {
+                    b.style.pointerEvents = 'none';
+                    if (b !== balloon) {
+                        b.style.opacity = '0.3';
+                    } else {
+                        // Highlight the chosen one
+                        b.style.animationPlayState = 'paused';
+                        b.style.transform = 'scale(1.2)';
+                        b.style.zIndex = '50';
+                    }
+                });
+
+                // Wait then load next
+                setTimeout(() => {
+                    currentIndex++;
+                    loadQuestion();
+                }, 2000);
+                
+            } else {
+                // Wrong answer!
+                balloon.classList.add('popped');
+                
+                feedbackMsg.innerText = "حاول مرة أخرى! ❌";
+                feedbackMsg.classList.add('text-red-500');
+                feedbackMsg.style.opacity = "1";
+                
+                // Decrease score slightly (optional, let's keep it simple and just not add)
+                
+                // Hide message after a short delay
+                setTimeout(() => {
+                    if(!isWaitingForNext) {
+                        feedbackMsg.style.opacity = "0";
+                    }
+                }, 1500);
+            }
+        }
+
+        function endGame() {
+            gameScreen.classList.add('hidden');
+            endScreen.classList.remove('hidden');
+            finalScore.innerText = score;
+            balloonContainer.innerHTML = '';
+        }
+
+        
+        function fireConfetti() {
+            const colors = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'];
+            
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                
+                // Random position across top width
+                confetti.style.left = `${Math.random() * 100}vw`;
+                confetti.style.top = `-20px`;
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Random size
+                const size = Math.random() * 8 + 4;
+                confetti.style.width = `${size}px`;
+                confetti.style.height = `${size}px`;
+                
+                // Random animation properties
+                const duration = Math.random() * 2 + 2; // 2-4s
+                confetti.style.animation = `confettiDrop ${duration}s ease-in forwards`;
+                
+                document.body.appendChild(confetti);
+                
+                // Cleanup
+                setTimeout(() => {
+                    confetti.remove();
+                }, duration * 1000);
+            }
+        }
+    </script>
+</body>
+</html>
